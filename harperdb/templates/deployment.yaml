@@ -1,0 +1,47 @@
+# Deployment for HarperDB
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.name }}
+  namespace: {{ default .Release.Namespace .Values.namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Values.name }} # group all the pods under the same label
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.name }} # create pods with the label we want to group them under
+    spec:
+      containers:
+      - name: {{ .Values.name }}-container
+        image: harperdb/harperdb # same hdb image from dockerhub
+        env:
+          - name: HDB_ADMIN_USERNAME
+            value: {{ required "You must set an admin username" .Values.env.ADMIN_USERNAME | quote }}
+          - name: HDB_ADMIN_PASSWORD
+            value: {{ required "You must set an admin password" .Values.env.ADMIN_PASSWORD | quote }}
+        resources:
+          limits:
+            memory: "512Mi" # limiting the usage of memory
+            cpu: "128m" # limiting the usage of CPU to 128 millicores
+        ports:
+        - containerPort: 9925 # exposing the port 9925 to the outside world
+          name: hdb-api # naming the port
+        volumeMounts: # creating a persistent volume to store the data
+          - mountPath: "/opt/harperdb" # mounting the volume to the path we want
+            name: hdb-data # referencing the volume we want to mount
+        livenessProbe: # creating a liveness probe to check if the container is running
+          tcpSocket: # we'll ping hdb's port 9925
+            port: 9925
+          initialDelaySeconds: 30 # wait 30 seconds before starting the probe
+          periodSeconds: 10 # then check the probe every 10 seconds
+        readinessProbe: # creating a readiness probe to check if the container is ready to accept connections
+          tcpSocket:
+            port: 9925
+          initialDelaySeconds: 10 # wait 10 seconds before starting the probe
+          periodSeconds: 5 # then check the probe every 5 seconds
+      volumes:
+        - name:  hdb-data # this is the volume we'll mount
+          persistentVolumeClaim: # it references another persistent volume claim
+            claimName: harperdb-data # this is the name of the persistent volume claim

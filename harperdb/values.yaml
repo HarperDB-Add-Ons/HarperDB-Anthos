@@ -1,0 +1,7 @@
+name: harperdb
+service:
+  port: 9925
+
+env:
+  ADMIN_USERNAME:
+  ADMIN_PASSWORD:
